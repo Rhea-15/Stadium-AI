@@ -95,6 +95,14 @@ export function getLiveAmenities(): Amenity[] {
   });
 }
 
+// Ratings are a stable per-amenity aggregate (real review scores don't drift
+// every few seconds like crowd/queue numbers do), but still derived
+// deterministically from the amenity id rather than hand-typed per item.
+export function getAmenityRating(id: string): number {
+  const rnd = mulberry32(hashStr(`rating|${id}`));
+  return Math.round((4.2 + rnd() * 0.7) * 10) / 10; // 4.2–4.9
+}
+
 const ANNOUNCEMENT_POOL: Omit<Announcement, "id" | "ageSec">[] = [
   { textEn: "Gates open for general entry.", priority: "info" },
   { textEn: "Heavy congestion reported near Gate C. Consider Gate D or F.", priority: "warning" },

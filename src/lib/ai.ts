@@ -1,6 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { parseCsv } from "./csv";
-import { getLiveGates, getLiveAmenities, getLiveAnnouncements, getWalkMinutes } from "./data";
+import {
+  getLiveGates,
+  getLiveAmenities,
+  getLiveAnnouncements,
+  getWalkMinutes,
+  getAmenityRating,
+  type Amenity,
+} from "./data";
 
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -46,7 +53,7 @@ export const recommendGate = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<GateRecommendation> => {
     const gates = getLiveGates();
     const eligible = data.accessibility ? gates.filter((g) => g.stepFree) : gates;
-    const section = KNOWN_SECTIONS.includes(data.section) ? data.section : KNOWN_SECTIONS[0];
+    const section = data.section?.trim() || "112";
 
     const system = `You are a stadium navigation reasoning engine for an 80,000-seat venue.
 Given LIVE gate data (JSON) and a fan's section, recommend the single best gate right now.
@@ -64,7 +71,7 @@ Respond with ONLY this JSON shape, no markdown fencing, no extra prose:
         capacityPct: g.capacityPct,
         waitMin: g.waitMin,
         stepFree: g.stepFree,
-        walkMin: g.walkMinFromSection[section],
+        walkMin: getWalkMinutes(g.id, section),
       })),
     });
 
@@ -75,7 +82,94 @@ Respond with ONLY this JSON shape, no markdown fencing, no extra prose:
     return safeJson<GateRecommendation>(raw, "recommendGate");
   });
 
-// ---------- 2. Multilingual grounded chat (Multilingual Assistance) ----------
+// ---------- 2. Amenity search (Amenity Finder) ----------
+
+// Maps each filter chip in the UI to a real, checkable field on Amenity.
+// "halal" and "water" have no dedicated field in the data model yet, so they
+// fall back to a name match rather than fabricating a certification/utility
+// flag that doesn't exist — with the current AMENITY_DEFS that means those
+// two filters correctly return nothing until such an amenity is added.
+const FILTER_TAG_MATCHERS: Record<string, (a: Amenity) => boolean> = {
+  veg: (a) => a.dietTag === "veg" || a.dietTag === "vegan",
+  halal: (a) => a.name.toLowerCase().includes("halal"),
+  rest: (a) => a.type === "restroom",
+  merch: (a) => a.type === "merch",
+  med: (a) => a.type === "medical",
+  water: (a) => a.name.toLowerCase().includes("water"),
+  a11y: (a) => a.accessible,
+};
+
+export type AmenitySearchResult = {
+  id: string;
+  name: string;
+  walkMin: number;
+  queueMin: number;
+  rating: number;
+  reason: string;
+};
+
+export const amenitySearch = createServerFn({ method: "POST" })
+  .validator((d: { activeFilters: string[]; section: string }) => d)
+  .handler(async ({ data }): Promise<{ results: AmenitySearchResult[] }> => {
+    const amenities = getLiveAmenities();
+    const matchers = data.activeFilters.map((f) => FILTER_TAG_MATCHERS[f]).filter(Boolean);
+    const filtered = matchers.length ? amenities.filter((a) => matchers.some((m) => m(a))) : amenities;
+
+    if (!filtered.length) return { results: [] };
+
+    // Precompute the real, authoritative numbers ourselves — the AI only
+    // ranks and explains, it never gets a chance to restate (and drift) a
+    // wait/walk/rating number.
+    const candidates = filtered.map((a) => ({
+      id: a.id,
+      name: a.name,
+      type: a.type,
+      dietTag: a.dietTag ?? null,
+      queueMin: a.waitMin,
+      walkMin: getWalkMinutes(a.nearestGate, data.section),
+      accessible: a.accessible,
+      rating: getAmenityRating(a.id),
+    }));
+
+    const system = `You are a stadium amenity ranking engine for an 80,000-seat venue.
+Given LIVE amenity candidates (JSON), already filtered to the fan's active filter chips, choose and
+order the best up to 4 by balancing shortest queue, shortest walk, and highest rating — never rank by
+rating alone. Every id you return MUST come from CANDIDATES; never invent an amenity.
+Respond with ONLY this JSON shape, no markdown fencing, no extra prose:
+{"picks": [{"id": string, "reason": string (1-2 sentences, cite the specific numbers)}]} — ordered
+best first, at most 4 items.`;
+
+    const user = JSON.stringify({
+      activeFilters: data.activeFilters,
+      section: data.section,
+      candidates,
+    });
+
+    const raw = await callGroq([
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ]);
+    const parsed = safeJson<{ picks: { id: string; reason: string }[] }>(raw, "amenitySearch");
+
+    const byId = new Map(candidates.map((c) => [c.id, c]));
+    const results: AmenitySearchResult[] = parsed.picks
+      .filter((p) => byId.has(p.id))
+      .map((p) => {
+        const c = byId.get(p.id)!;
+        return {
+          id: c.id,
+          name: c.name,
+          walkMin: c.walkMin,
+          queueMin: c.queueMin,
+          rating: c.rating,
+          reason: p.reason,
+        };
+      });
+
+    return { results };
+  });
+
+// ---------- 3. Multilingual grounded chat (Multilingual Assistance) ----------
 
 export type ChatReply = {
   text: string;
@@ -121,7 +215,7 @@ Respond with ONLY this JSON shape, no markdown:
     return safeJson<ChatReply>(raw, "chatWithAssistant");
   });
 
-// ---------- 3. Judge-supplied data upload (functional evaluation requirement) ----------
+// ---------- 4. Judge-supplied data upload (functional evaluation requirement) ----------
 
 export type CsvAnalysis = {
   answer: string;
@@ -153,7 +247,7 @@ Respond with ONLY JSON: {"answer": string, "reasoning": string, "columnsDetected
     return { ...parsed, rowCount: rows.length };
   });
 
-// ---------- 4. Live venue snapshot (for dashboard) ----------
+// ---------- 5. Live venue snapshot (for dashboard) ----------
 
 export const getLiveVenueSnapshot = createServerFn({ method: "GET" }).handler(async () => ({
   gates: getLiveGates(),

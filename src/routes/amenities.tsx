@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Search, Leaf, Circle, ShieldCheck, ShoppingBag, HeartPulse, Droplet, Accessibility, Star, Clock, Users } from "lucide-react";
+import { Search, Leaf, Circle, ShieldCheck, ShoppingBag, HeartPulse, Droplet, Accessibility, Star, Clock, Users, Loader2 } from "lucide-react";
+import { amenitySearch, type AmenitySearchResult } from "@/lib/ai";
+import { getSession } from "@/lib/session";
 import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/amenities")({
@@ -19,18 +21,43 @@ const filters = [
   { key: "a11y", labelKey: "amenities.filter.a11y" as const, icon: Accessibility },
 ] as const;
 
-const results = [
-  { name: "Green Kitchen", walkMin: 4, queueLevel: "short" as const, queueMin: 2, rating: 4.8, reasonKey: "amenities.reason.greenKitchen" as const },
-  { name: "Halal House", walkMin: 6, queueLevel: "medium" as const, queueMin: 5, rating: 4.7, reasonKey: "amenities.reason.halalHouse" as const },
-  { name: "The Field Cafe", walkMin: 3, queueLevel: "short" as const, queueMin: 3, rating: 4.6, reasonKey: "amenities.reason.fieldCafe" as const },
-  { name: "Fresh Squeeze", walkMin: 5, queueLevel: "none" as const, queueMin: 0, rating: 4.9, reasonKey: "amenities.reason.freshSqueeze" as const },
-];
+function queueLevelFor(min: number): "short" | "medium" | "none" {
+  if (min <= 0) return "none";
+  if (min <= 3) return "short";
+  return "medium";
+}
 
 function AmenitiesPage() {
   const { t } = useT();
+  const session = getSession();
   const [active, setActive] = useState<string[]>(["veg"]);
+  const [results, setResults] = useState<AmenitySearchResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  function queueLabel(level: "short" | "medium" | "none", min: number) {
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await amenitySearch({ data: { activeFilters: active, section: session.section } });
+        if (!cancelled) setResults(res.results);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load live amenities.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  function queueLabel(min: number) {
+    const level = queueLevelFor(min);
     if (level === "none") return t("amenities.queueLevel.none");
     return `${t(`amenities.queueLevel.${level}` as const)} (${min} ${t("common.min")})`;
   }
@@ -81,14 +108,30 @@ function AmenitiesPage() {
         </div>
 
         <div className="space-y-3">
+          {error && (
+            <div className="glass-strong rounded-2xl p-5 border border-red-500/30 text-sm text-red-300">{error}</div>
+          )}
+
+          {loading && !results.length && (
+            <div className="glass-strong rounded-3xl p-10 flex items-center gap-3 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> {t("gate.loading")}
+            </div>
+          )}
+
+          {!loading && !error && !results.length && (
+            <div className="glass rounded-2xl p-5 text-sm text-muted-foreground">
+              No live amenities match the selected filters right now.
+            </div>
+          )}
+
           {results.map((r, i) => (
-            <motion.div key={r.name} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="glass hover-lift rounded-2xl p-5">
+            <motion.div key={r.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="glass hover-lift rounded-2xl p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="text-lg font-bold">{r.name}</h3>
                   <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {r.walkMin} {t("common.min")}</span>
-                    <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {queueLabel(r.queueLevel, r.queueMin)}</span>
+                    <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {queueLabel(r.queueMin)}</span>
                     <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5 text-yellow-400" /> {r.rating}</span>
                   </div>
                 </div>
@@ -96,7 +139,7 @@ function AmenitiesPage() {
               </div>
               <div className="mt-3 rounded-xl border border-white/8 bg-white/[0.02] p-3 text-xs text-muted-foreground">
                 <span className="text-[#00d4ff] font-semibold">{t("amenities.aiLabel")} </span>
-                {t(r.reasonKey)}
+                {r.reason}
               </div>
             </motion.div>
           ))}

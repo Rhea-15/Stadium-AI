@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { getSession, setSession } from "./session";
-
+const RTL_LANGUAGES: LanguageName[] = ["Arabic"];
 export const LANGUAGES = [
   { flag: "🇺🇸", name: "English", native: "English", code: "EN" },
   { flag: "🇮🇳", name: "Hindi", native: "हिन्दी", code: "HI" },
@@ -11,7 +11,6 @@ export const LANGUAGES = [
   { flag: "🇸🇦", name: "Arabic", native: "العربية", code: "AR" },
 ] as const;
 
-const RTL_LANGUAGES: LanguageName[] = ["Arabic"];
 
 function applyDocumentDirection(language: LanguageName) {
   if (typeof document === "undefined") return;
