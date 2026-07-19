@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import { Users, Activity, Clock, AlertTriangle, Sparkles } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, AreaChart, Area } from "recharts";
+import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Live Stadium Dashboard — StadiumAI" }, { name: "description", content: "Real-time stadium analytics." }] }),
@@ -16,28 +17,30 @@ const concourseData = Array.from({ length: 12 }).map((_, i) => ({ t: `${i * 5}m`
 const foodQueue = Array.from({ length: 10 }).map((_, i) => ({ t: `${i}`, v: 2 + Math.round(Math.random() * 8) }));
 
 function DashboardPage() {
+  const { t } = useT();
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight">Live Stadium Dashboard</h1>
-          <p className="mt-1 text-muted-foreground">Real-time analytics · Estadio Azteca</p>
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight">{t("dashboard.title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("dashboard.subtitle")}</p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-300">
-          <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-400" /> Streaming · updated 2s ago
+          <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-400" /> {t("dashboard.streaming")}
         </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <Kpi icon={Users} label="Live Attendance" value="78,241" delta="+412" tone="cyan" />
-        <Kpi icon={Activity} label="Crowd Density" value="62%" delta="Moderate" tone="violet" />
-        <Kpi icon={Clock} label="Avg Waiting Time" value="4.2m" delta="-0.8m" tone="cyan" />
-        <Kpi icon={AlertTriangle} label="Emergency Alerts" value="0" delta="All clear" tone="emerald" />
-        <Kpi icon={Sparkles} label="AI Confidence" value="96%" delta="High" tone="violet" />
+        <Kpi icon={Users} label={t("dashboard.kpi.attendance")} value="78,241" delta="+412" tone="cyan" />
+        <Kpi icon={Activity} label={t("dashboard.kpi.density")} value="62%" delta={t("dashboard.delta.moderate")} tone="violet" />
+        <Kpi icon={Clock} label={t("dashboard.kpi.avgWait")} value="4.2m" delta="-0.8m" tone="cyan" />
+        <Kpi icon={AlertTriangle} label={t("dashboard.kpi.alerts")} value="0" delta={t("dashboard.delta.allClear")} tone="emerald" />
+        <Kpi icon={Sparkles} label={t("dashboard.kpi.aiConfidence")} value="96%" delta={t("dashboard.delta.high")} tone="violet" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <ChartCard title="Gate Capacity" subtitle="Live per-gate load">
+        <ChartCard title={t("dashboard.chart.gateCapacity.title")} subtitle={t("dashboard.chart.gateCapacity.subtitle")}>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={gateData}>
               <defs>
@@ -54,7 +57,7 @@ function DashboardPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Concourse Density" subtitle="60-minute rolling">
+        <ChartCard title={t("dashboard.chart.concourse.title")} subtitle={t("dashboard.chart.concourse.subtitle")}>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={concourseData}>
               <defs>
@@ -71,7 +74,7 @@ function DashboardPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Food Queue Length" subtitle="Avg persons per stand">
+        <ChartCard title={t("dashboard.chart.foodQueue.title")} subtitle={t("dashboard.chart.foodQueue.subtitle")}>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={foodQueue}>
               <XAxis dataKey="t" stroke="rgba(255,255,255,0.4)" fontSize={11} />

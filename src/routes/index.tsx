@@ -3,75 +3,64 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion } from "motion/react";
 import { Accessibility, Type, Captions, ArrowRight, Ticket, Languages } from "lucide-react";
+import { useT, LANGUAGES } from "@/lib/i18n";
+import { setSession } from "@/lib/session";
 
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const languages = [
-  { flag: "🇺🇸", name: "English", native: "English" },
-  { flag: "🇮🇳", name: "Hindi", native: "हिन्दी" },
-  { flag: "🇪🇸", name: "Spanish", native: "Español" },
-  { flag: "🇫🇷", name: "French", native: "Français" },
-  { flag: "🇧🇷", name: "Portuguese", native: "Português" },
-  { flag: "🇩🇪", name: "German", native: "Deutsch" },
-  { flag: "🇸🇦", name: "Arabic", native: "العربية" },
-];
-
 const a11yOptions = [
-  { key: "wheel", label: "Wheelchair Friendly Routes", icon: Accessibility },
-  { key: "text", label: "Larger Text", icon: Type },
-  { key: "caps", label: "Live Captions", icon: Captions },
-];
+  { key: "wheel", labelKey: "onboarding.a11y.wheel" as const, icon: Accessibility },
+  { key: "text", labelKey: "onboarding.a11y.text" as const, icon: Type },
+  { key: "caps", labelKey: "onboarding.a11y.caps" as const, icon: Captions },
+] as const;
 
 function Index() {
   const navigate = useNavigate();
-  const [lang, setLang] = useState("English");
+  const { t, language, setLanguage } = useT();
   const [toggles, setToggles] = useState<Record<string, boolean>>({});
   const [seat, setSeat] = useState({ section: "", row: "", num: "" });
 
+  function handleContinue() {
+    setSession({ section: seat.section || "112", accessibility: !!toggles.wheel });
+    navigate({ to: "/gate" });
+  }
+
   return (
     <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
-      {/* Left — hero */}
       <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="relative">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-muted-foreground">
           <span className="pulse-dot inline-block h-1.5 w-1.5 rounded-full bg-[#00d4ff]" />
-          FIFA World Cup 2026 · Powered by AI
+          {t("onboarding.badge")}
         </div>
         <h1 className="text-5xl md:text-6xl font-black tracking-tight leading-[1.05]">
-          Welcome to <span className="gradient-text">StadiumAI</span>
+          {t("onboarding.titleLead")} <span className="gradient-text">StadiumAI</span>
         </h1>
-        <p className="mt-4 max-w-lg text-lg text-muted-foreground">
-          Navigate the FIFA World Cup smarter with AI. Real-time gates, crowd intelligence, and multilingual assistance — designed for every fan.
-        </p>
+        <p className="mt-4 max-w-lg text-lg text-muted-foreground">{t("onboarding.subtitle")}</p>
 
-        {/* Stadium wireframe */}
         <div className="relative mt-10 aspect-[16/9] w-full max-w-xl">
           <StadiumWireframe />
         </div>
       </motion.section>
 
-      {/* Right — form panel */}
       <motion.section
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.15 }}
         className="glass-strong rounded-3xl p-6 md:p-8 space-y-7"
       >
-        {/* Language */}
         <div>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <Languages className="h-4 w-4 text-[#00d4ff]" /> Select Language
+            <Languages className="h-4 w-4 text-[#00d4ff]" /> {t("onboarding.selectLanguage")}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {languages.map((l) => (
+            {LANGUAGES.map((l) => (
               <button
                 key={l.name}
-                onClick={() => setLang(l.name)}
+                onClick={() => setLanguage(l.name)}
                 className={`flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-sm text-left transition-all ${
-                  lang === l.name
-                    ? "border-[#00d4ff]/60 bg-[#00d4ff]/10 glow-ring"
-                    : "border-white/8 bg-white/[0.02] hover:bg-white/[0.05]"
+                  language === l.name ? "border-[#00d4ff]/60 bg-[#00d4ff]/10 glow-ring" : "border-white/8 bg-white/[0.02] hover:bg-white/[0.05]"
                 }`}
               >
                 <span className="text-lg">{l.flag}</span>
@@ -81,10 +70,9 @@ function Index() {
           </div>
         </div>
 
-        {/* Accessibility */}
         <div>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <Accessibility className="h-4 w-4 text-[#00d4ff]" /> Accessibility
+            <Accessibility className="h-4 w-4 text-[#00d4ff]" /> {t("onboarding.accessibility")}
           </div>
           <div className="space-y-2">
             {a11yOptions.map((o) => {
@@ -93,12 +81,12 @@ function Index() {
               return (
                 <button
                   key={o.key}
-                  onClick={() => setToggles((t) => ({ ...t, [o.key]: !t[o.key] }))}
+                  onClick={() => setToggles((tg) => ({ ...tg, [o.key]: !tg[o.key] }))}
                   className="flex w-full items-center justify-between rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3 text-sm hover:bg-white/[0.05] transition"
                 >
                   <span className="flex items-center gap-3">
                     <Icon className="h-4 w-4 text-muted-foreground" />
-                    {o.label}
+                    {t(o.labelKey)}
                   </span>
                   <span className={`relative h-6 w-11 rounded-full transition ${on ? "gradient-brand" : "bg-white/10"}`}>
                     <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-5" : "left-0.5"}`} />
@@ -109,16 +97,15 @@ function Index() {
           </div>
         </div>
 
-        {/* Seat */}
         <div>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <Ticket className="h-4 w-4 text-[#00d4ff]" /> Your Seat
+            <Ticket className="h-4 w-4 text-[#00d4ff]" /> {t("onboarding.yourSeat")}
           </div>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { k: "section", ph: "Section", v: seat.section },
-              { k: "row", ph: "Row", v: seat.row },
-              { k: "num", ph: "Seat", v: seat.num },
+              { k: "section" as const, ph: t("onboarding.section"), v: seat.section },
+              { k: "row" as const, ph: t("onboarding.row"), v: seat.row },
+              { k: "num" as const, ph: t("onboarding.seat"), v: seat.num },
             ].map((f) => (
               <input
                 key={f.k}
@@ -132,10 +119,10 @@ function Index() {
         </div>
 
         <button
-          onClick={() => navigate({ to: "/gate" })}
+          onClick={handleContinue}
           className="group flex w-full items-center justify-center gap-2 rounded-2xl gradient-brand py-4 text-sm font-semibold text-white shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all"
         >
-          Generate My Smart Route
+          {t("onboarding.cta")}
           <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
         </button>
       </motion.section>
