@@ -161,3 +161,37 @@
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,212,255,0.3); }
+
+/* RTL Support for all components */
+[dir="rtl"] .me-auto { margin-inline-end: auto; }
+[dir="rtl"] .ms-auto { margin-inline-start: auto; }
+
+/* Sidebar RTL positioning */
+[dir="rtl"] aside { border-right: none; border-left: 1px solid rgba(255, 255, 255, 0.05); }
+
+/* Language menu positioning */
+[dir="rtl"] .glass-strong { left: 0; right: auto; }
+
+/* Amenities map badge positioning */
+[dir="rtl"] .absolute.bottom-4.left-4 { right: 1rem; left: auto; }
+
+/* Grid for amenities page */
+[dir="rtl"] .grid.gap-6 { direction: rtl; }
+
+/* Flex items for better RTL handling */
+[dir="rtl"] .flex { direction: rtl; }
+
+/* Icons and content spacing */
+[dir="rtl"] .inline-flex { direction: rtl; }
+
+/* Search input RTL */
+[dir="rtl"] .flex.items-center.gap-2 > svg:first-child { order: 2; margin-inline: 0 0.75rem; }
+
+/* Result cards RTL */
+[dir="rtl"] .glass.hover-lift { direction: rtl; }
+
+/* Activity indicator positioning */
+[dir="rtl"] .pulse-dot.h-2 { right: auto; left: 1.5rem; }
+
+/* Better text wrapping for RTL */
+[dir="rtl"] .truncate { unicode-bidi: plaintext; }
